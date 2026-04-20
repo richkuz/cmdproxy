@@ -4,7 +4,21 @@
 
 ## Install
 
-Download a pre-built binary from [GitHub Releases](https://github.com/richkuz/cmdproxy/releases), then put it on your `PATH` (example: `/usr/local/bin`).
+There are **no GitHub Release binaries until a maintainer publishes a version tag** (see **Development**). Until then, use **build from source** below—the `curl` commands only work after a release exists.
+
+### Build from source (works immediately; requires [Go](https://go.dev/dl/) 1.22+)
+
+```bash
+git clone https://github.com/richkuz/cmdproxy.git
+cd cmdproxy
+go build -o cmdproxy .
+chmod +x cmdproxy
+sudo mv cmdproxy /usr/local/bin/cmdproxy
+```
+
+### Pre-built binary (after a release exists)
+
+Open [Releases](https://github.com/richkuz/cmdproxy/releases). If the page lists at least one version, you can install with `curl` (names must match the uploaded assets):
 
 **Apple Silicon (M1 / M2 / M3 / …):**
 
@@ -22,7 +36,7 @@ chmod +x cmdproxy
 sudo mv cmdproxy /usr/local/bin/cmdproxy
 ```
 
-If `releases/latest/download/...` returns 404, there may not be a published release yet—use **Install from source** below, or copy a matching binary from `dist/` after running `make dist-darwin` locally.
+If `curl` prints **404**, there is still no release—use the build steps above.
 
 ## Usage
 
@@ -86,7 +100,9 @@ Running **`cmdproxy` with no arguments** auto-runs first-time setup (if the shim
 
 Optional overrides: `CMDPROXY_CONFIG_DIR` (moves data + default socket + default shims root), or individual `CMDPROXY_SOCKET` / `CMDPROXY_SHIM_DIR` if you use a custom layout.
 
-## Install from source
+## Install from source (same repo, no clone)
+
+If you already have the repository checked out:
 
 ```bash
 go build -o cmdproxy .
@@ -95,6 +111,15 @@ cmdproxy   # auto-inits if needed, then serves
 ```
 
 Pre-built artifacts for maintainers live under **`dist/`** — `darwin-arm64` and `darwin-amd64`. Regenerate: `make dist-darwin` (uses Docker; see `Makefile`).
+
+### Publishing a GitHub Release (uploads `curl` assets)
+
+Tagging `main` triggers `.github/workflows/release.yml`, which attaches `cmdproxy-darwin-arm64` and `cmdproxy-darwin-amd64` to the release so the install URLs above work:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
 
 ## Rules (“Always”) and env keys
 
