@@ -2,6 +2,54 @@
 
 `cmdproxy` is a **macOS-oriented helper** that sits in front of selected CLI tools (via `PATH` shims), asks you whether each invocation is allowed, and—when you allow it—runs the **real** binary with the **`cmdproxy serve` process environment merged in** (so the agent can keep a minimal env while you approve passing through secrets from the daemon).
 
+## Install
+
+Download a pre-built binary from [GitHub Releases](https://github.com/richkuz/cmdproxy/releases), then put it on your `PATH` (example: `/usr/local/bin`).
+
+**Apple Silicon (M1 / M2 / M3 / …):**
+
+```bash
+curl -fsSL -o cmdproxy "https://github.com/richkuz/cmdproxy/releases/latest/download/cmdproxy-darwin-arm64"
+chmod +x cmdproxy
+sudo mv cmdproxy /usr/local/bin/cmdproxy
+```
+
+**Intel Mac:**
+
+```bash
+curl -fsSL -o cmdproxy "https://github.com/richkuz/cmdproxy/releases/latest/download/cmdproxy-darwin-amd64"
+chmod +x cmdproxy
+sudo mv cmdproxy /usr/local/bin/cmdproxy
+```
+
+If `releases/latest/download/...` returns 404, there may not be a published release yet—use **Install from source** below, or copy a matching binary from `dist/` after running `make dist-darwin` locally.
+
+## Usage
+
+```bash
+# One-time interactive initialization and configuration
+cmdproxy
+
+# Usage:
+export GITHUB_TOKEN=... # Or any privileged ENV vars
+cmdproxy &
+
+unset GITHUB_TOKEN
+claude
+```
+
+The first `cmdproxy` run performs first-time setup and keeps the daemon in the **foreground**; press Ctrl+C when you are finished, then use the `cmdproxy &` pattern for regular agent sessions. For menus to edit shims and rules without starting the daemon, run **`cmdproxy config`**.
+
+When Claude Code (or any tool) runs `gh` or another **shimmed** command on your `PATH`, `cmdproxy` shows a **macOS dialog** (Allow / Deny, once or always). Use **`cmdproxy config`** (or edit `rules.json`) to choose which commands are shimmed and which environment variable names are merged for each **allow** rule—so privileged env vars apply only to commands you allow.
+
+After the first run, add the shims directory to `PATH` (the tool prints the exact line), typically:
+
+```bash
+export PATH="$HOME/Library/Application Support/cmdproxy/shims:$PATH"
+```
+
+Put that in `~/.zshrc` / `~/.bashrc`, or export it in the terminal where you launch the agent.
+
 ## Why this exists
 
 Tools like Cursor CLI Agent or other automation often need to run commands (`gh`, `git`, `curl`, …). If you put secrets in that process’s environment, the agent (and anything it runs) can read them. `cmdproxy` splits the world in two:
@@ -46,35 +94,7 @@ sudo mv cmdproxy /usr/local/bin/   # optional
 cmdproxy   # auto-inits if needed, then serves
 ```
 
-## Pre-built macOS binary
-
-See **`dist/`** — `darwin-arm64` (Apple Silicon) and `darwin-amd64` (Intel). Copy the matching binary onto your `PATH`, then run **`cmdproxy`** (or `cmdproxy init` if you prefer explicit setup).
-
-Regenerate artifacts: `make dist-darwin` (uses Docker; see `Makefile`).
-
-## First-time flow (recommended)
-
-1. **Install the binary** on your `PATH` (e.g. `/usr/local/bin/cmdproxy`).
-
-2. **Start everything** — with no arguments, `cmdproxy` creates the data directory and default shims if needed (`gh` and `git`), then runs the daemon:
-
-   ```bash
-   export GITHUB_TOKEN="..."   # example: only in this terminal
-
-   cmdproxy
-   ```
-
-   That is equivalent to running `cmdproxy init -y` once (when the shims folder is missing or empty), then `cmdproxy serve`. You can still use **`cmdproxy init`** interactively or **`cmdproxy serve`** alone if you already initialized.
-
-3. **Add shims to your PATH** — the first-time output prints a line like:
-
-   ```bash
-   export PATH="$HOME/Library/Application Support/cmdproxy/shims:$PATH"
-   ```
-
-   Put that in `~/.zshrc` or `~/.bashrc` (or export it in the terminal where you launch the agent).
-
-4. **Run your agent** from a shell **without** those secrets in the environment.
+Pre-built artifacts for maintainers live under **`dist/`** — `darwin-arm64` and `darwin-amd64`. Regenerate: `make dist-darwin` (uses Docker; see `Makefile`).
 
 ## Rules (“Always”) and env keys
 
