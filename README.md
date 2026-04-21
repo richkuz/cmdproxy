@@ -1,5 +1,11 @@
 # cmdproxy
 
+NOTE: I've abandoned this. It's too cumbersome to add shims for `gh` such that they are reliably invoked by `cursor-agent` and `claude`.
+
+Just stick with the normal allowlist/denylist in AI harnesses. Or use properly scoped read-only GitHub tokens.
+
+# OLD
+
 `cmdproxy` is a **macOS** tool to let allow-list privileged ENV vars for commands that Claude Code and other AI agents run.
 
 ## Quick Start
