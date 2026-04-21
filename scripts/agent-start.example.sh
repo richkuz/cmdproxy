@@ -5,22 +5,26 @@ set -euo pipefail
 
 LOG=/tmp/cmdproxy-serve.log
 
-# Run cmdproxy daemon with only the ENV vars you want it and its allowed commands to see.
-# For example, allow access to GITHUB_TOKEN.
+echo "Running cmdproxy..."
 env -i \
-  HOME="$HOME" \
   GITHUB_TOKEN="$GITHUB_TOKEN" \
   cmdproxy >"$LOG" 2>&1 &
 SERVE_PID=$!
-cleanup() { kill "$SERVE_PID" 2>/dev/null || true; }
+cleanup() { echo "Terminating cmdproxy..." && kill "$SERVE_PID" 2>/dev/null || true; }
 trap cleanup EXIT
 
 cmdproxy wait-socket -log "$LOG"
 
-# Agent: extend PATH with shims; no GITHUB_TOKEN.
+SHIM="$(cmdproxy shim-path)"
+# If the agent ignores this PATH (Claude Code’s Bash tool often does), run once:
+#   sudo cmdproxy link-shims
+# so /usr/local/bin/gh points at the shim; default macOS PATH order then prefers it over Homebrew.
+PATH="$SHIM:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+echo "Running agent with limited ENV vars..."
 exec env -i \
   HOME="$HOME" \
   USER="${USER:-$(id -un)}" \
-  PATH="$(cmdproxy shim-path):/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin" \
+  PATH="$PATH" \
   TERM="${TERM:-dumb}" \
-  agent "$@"
+  "$HOME/.local/bin/agent" "$@"

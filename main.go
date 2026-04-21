@@ -22,6 +22,16 @@ func main() {
 	installDir := installCmd.String("dir", "", "shim directory (default: ~/Library/Application Support/cmdproxy/shims on macOS)")
 	installNames := installCmd.String("names", "gh,git", "comma-separated tool names to shim")
 
+	linkCmd := flag.NewFlagSet("link-shims", flag.ExitOnError)
+	linkTo := linkCmd.String("to", "/usr/local/bin", "directory for symlinks (should sort before Homebrew in PATH; often /usr/local/bin)")
+	linkNames := linkCmd.String("names", "gh,git", "comma-separated tool names (must already exist under the shims directory)")
+
+	uninstallCmd := flag.NewFlagSet("uninstall", flag.ExitOnError)
+	uninstallYes := uninstallCmd.Bool("y", false, "non-interactive: do not prompt")
+	uninstallKeepLinks := uninstallCmd.Bool("keep-system-links", false, "do not remove symlinks from -from")
+	uninstallFrom := uninstallCmd.String("from", "/usr/local/bin", "directory where link-shims placed symlinks (must match link-shims -to)")
+	uninstallNames := uninstallCmd.String("names", "gh,git", "comma-separated names to unlink from -from when removing system links")
+
 	initCmd := flag.NewFlagSet("init", flag.ExitOnError)
 	initNames := initCmd.String("names", "gh,git", "comma-separated tool names to shim")
 	initYes := initCmd.Bool("y", false, "non-interactive: create directories and install shims without prompting")
@@ -64,6 +74,21 @@ func main() {
 		names := splitToolNames(*installNames)
 		if err := runInstallShims(*installDir, names, os.Stderr); err != nil {
 			fmt.Fprintf(os.Stderr, "cmdproxy install-shims: %v\n", err)
+			os.Exit(1)
+		}
+	case "link-shims":
+		_ = linkCmd.Parse(os.Args[2:])
+		names := splitToolNames(*linkNames)
+		if err := runLinkShims(*linkTo, names, os.Stderr); err != nil {
+			fmt.Fprintf(os.Stderr, "cmdproxy link-shims: %v\n", err)
+			os.Exit(1)
+		}
+	case "uninstall":
+		_ = uninstallCmd.Parse(os.Args[2:])
+		names := splitToolNames(*uninstallNames)
+		removeLinks := !*uninstallKeepLinks
+		if err := runUninstall(*uninstallFrom, names, removeLinks, *uninstallYes, os.Stdin, os.Stderr); err != nil {
+			fmt.Fprintf(os.Stderr, "cmdproxy uninstall: %v\n", err)
 			os.Exit(1)
 		}
 	case "init":
@@ -136,6 +161,15 @@ func usage() {
 
   cmdproxy install-shims [-dir DIR] [-names gh,git,...]
     Create symlinks only (default shim dir matches init).
+
+  cmdproxy link-shims [-to /usr/local/bin] [-names gh,git,...]
+    Symlink each shim into -to (default /usr/local/bin). Use when an agent ignores PATH:
+    macOS usually orders /usr/local/bin before /opt/homebrew/bin, so gh resolves to cmdproxy.
+    May require: sudo cmdproxy link-shims
+
+  cmdproxy uninstall [-y] [-keep-system-links] [-from /usr/local/bin] [-names gh,git,...]
+    Remove the cmdproxy data directory (rules, shims, socket) and, by default, matching
+    symlinks created by link-shims under -from. Stop cmdproxy serve first.
 
   cmdproxy shim-path
     Print the default shims directory (stdout only). For scripts:

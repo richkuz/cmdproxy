@@ -1,24 +1,35 @@
 # cmdproxy
 
-`cmdproxy` is a **macOS-oriented helper** that sits in front of selected CLI tools (via `PATH` shims), asks you whether each invocation is allowed, and—when you allow it—runs the **real** binary with the **`cmdproxy serve` process environment merged in** (so the agent can keep a minimal env while you approve passing through secrets from the daemon).
+`cmdproxy` is a **macOS** tool to let allow-list privileged ENV vars for commands that Claude Code and other AI agents run.
+
+## Quick Start
+
+```bash
+# Install (Apple Silicon)
+curl -fsSL -o cmdproxy "https://github.com/richkuz/cmdproxy/releases/latest/download/cmdproxy-darwin-arm64"
+chmod +x cmdproxy
+sudo mv cmdproxy /usr/local/bin/cmdproxy
+
+# One-time initialization
+cmdproxy init -y
+
+# Usage:
+export GITHUB_TOKEN=... # Or any privileged ENV vars
+cmdproxy &
+
+unset GITHUB_TOKEN
+claude
+```
+
+Ask claude to read a PR or push a PR using `gh`.
+
+`cmdproxy` will intercept the call and allow you to run the command on your behalf with privileged ENV vars that the AI agent cannot see.
+
+
 
 ## Install
 
-There are **no GitHub Release binaries until a maintainer publishes a version tag** (see **Development**). Until then, use **build from source** below—the `curl` commands only work after a release exists.
-
-### Build from source (works immediately; requires [Go](https://go.dev/dl/) 1.22+)
-
-```bash
-git clone https://github.com/richkuz/cmdproxy.git
-cd cmdproxy
-go build -o cmdproxy .
-chmod +x cmdproxy
-sudo mv cmdproxy /usr/local/bin/cmdproxy
-```
-
-### Pre-built binary (after a release exists)
-
-Open [Releases](https://github.com/richkuz/cmdproxy/releases). If the page lists at least one version, you can install with `curl` (names must match the uploaded assets):
+Install the **latest release** from [GitHub Releases](https://github.com/richkuz/cmdproxy/releases) with `curl`, then put the binary on your `PATH` (here: `/usr/local/bin`). Assets are named `cmdproxy-darwin-arm64` and `cmdproxy-darwin-amd64`.
 
 **Apple Silicon (M1 / M2 / M3 / …):**
 
@@ -36,7 +47,17 @@ chmod +x cmdproxy
 sudo mv cmdproxy /usr/local/bin/cmdproxy
 ```
 
-If `curl` prints **404**, there is still no release—use the build steps above.
+If `curl` prints **404**, there is no published release yet—use **Build from source** below, or a maintainer can [publish a release](#publishing-a-release).
+
+### Build from source (requires [Go](https://go.dev/dl/) 1.22+)
+
+```bash
+git clone https://github.com/richkuz/cmdproxy.git
+cd cmdproxy
+go build -o cmdproxy .
+chmod +x cmdproxy
+sudo mv cmdproxy /usr/local/bin/cmdproxy
+```
 
 ## Usage
 
@@ -63,6 +84,14 @@ export PATH="$HOME/Library/Application Support/cmdproxy/shims:$PATH"
 ```
 
 Put that in `~/.zshrc` / `~/.bashrc`, or export it in the terminal where you launch the agent.
+
+**Claude Code (and similar)** often use a shell environment that **does not** keep your shims first on `PATH`, so `command -v gh` may still show `/opt/homebrew/bin/gh`. Run once (after `cmdproxy init`):
+
+```bash
+sudo cmdproxy link-shims
+```
+
+That symlinks shims into `/usr/local/bin`, which usually appears **before** `/opt/homebrew/bin` in the default macOS `PATH` order, so `gh` resolves to cmdproxy.
 
 ## Why this exists
 
@@ -112,15 +141,6 @@ cmdproxy   # auto-inits if needed, then serves
 
 Pre-built artifacts for maintainers live under **`dist/`** — `darwin-arm64` and `darwin-amd64`. Regenerate: `make dist-darwin` (uses Docker; see `Makefile`).
 
-### Publishing a GitHub Release (uploads `curl` assets)
-
-Tagging `main` triggers `.github/workflows/release.yml`, which attaches `cmdproxy-darwin-arm64` and `cmdproxy-darwin-amd64` to the release so the install URLs above work:
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
-
 ## Rules (“Always”) and env keys
 
 Persisted rules live in `rules.json`. The first matching regex wins. **Deny** rules block the command. **Allow** rules include:
@@ -154,6 +174,23 @@ Use **`cmdproxy config`** for an interactive session to edit shims and rules (in
 - `make docker-test` — format, vet, test in Linux container.
 - `make docker-build` — Linux binary in repo root (for CI; **not** for running on macOS).
 - `make dist-darwin` — cross-compile macOS binaries into `dist/`.
+
+### Publishing a release
+
+Pushing a **version tag** whose name starts with `v` runs [`.github/workflows/release.yml`](.github/workflows/release.yml). That workflow cross-compiles macOS binaries and uploads **`cmdproxy-darwin-arm64`** and **`cmdproxy-darwin-amd64`** to a [GitHub Release](https://github.com/richkuz/cmdproxy/releases) for that tag. After the workflow succeeds, the `curl` install URLs under [Install](#install) resolve to the new build.
+
+1. Merge your changes to `main` and update your local clone (`git pull`) so the commit you tag is the one you intend to ship.
+2. Choose the next version name (e.g. `v0.1.0`, then later `v0.1.1`). Tags must be unique; you cannot reuse a version.
+3. Create the tag at the current commit and **push the tag** (pushing `main` alone does not publish binaries):
+
+```bash
+git tag v0.1.1
+git push origin v0.1.1
+```
+
+4. On GitHub, open the **Actions** tab and confirm the **Release** workflow completed successfully. The new release should list both darwin assets; **`releases/latest/download/...`** then points at the newest tag.
+
+If you tagged the wrong commit, remove the remote tag with `git push origin :refs/tags/v0.1.1`, delete it locally with `git tag -d v0.1.1`, then tag again and push.
 
 ## License
 
